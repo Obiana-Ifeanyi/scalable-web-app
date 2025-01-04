@@ -22,8 +22,21 @@ my-scalable-web-app/
 │   ├── terraform/
 │   │   ├── modules/
 │   │   │   ├── eks/
+│   │   │   │   ├── main.tf
+│   │   │   │   ├── outputs.tf
+│   │   │   │   ├── variables.tf
 │   │   │   ├── security-groups/
+│   │   │   │   ├── main.tf
+│   │   │   │   ├── outputs.tf
+│   │   │   │   ├── variables.tf
 │   │   │   ├── vpc/
+│   │   │   │   ├── main.tf
+│   │   │   │   ├── outputs.tf
+│   │   │   │   ├── variables.tf
+│   │   │   ├── rds/
+│   │   │   │   ├── main.tf
+│   │   │   │   ├── outputs.tf
+│   │   │   │   ├── variables.tf
 │   │   ├── prod/
 │   │   │   ├── backend.tf
 │   │   │   ├── main.tf
