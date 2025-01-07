@@ -21,7 +21,7 @@ my-scalable-web-app/
 ├── infrastructure/
 │   ├── terraform/
 │   │   ├── modules/
-│   │   │   ├── eks/
+│   │   │   ├── eks_deps/
 │   │   │   │   ├── main.tf
 │   │   │   │   ├── outputs.tf
 │   │   │   │   ├── variables.tf
