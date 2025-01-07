@@ -1,8 +1,8 @@
 module "vpc" {
-  source = "../modules/vpc"
-  cidr_block = "10.0.0.0/16"
-  name = "prod-vpc"
-  public_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  source          = "../modules/vpc"
+  cidr_block      = "10.0.0.0/16"
+  name            = "prod-vpc"
+  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets = ["10.0.3.0/24", "10.0.4.0/24"]
 }
 
@@ -12,7 +12,6 @@ module "eks_deps" {
   vpc_id       = module.vpc.vpc_id
   tags = {
     Environment = "production"
-    Project     = "dagster-eks-poc"
   }
 }
 
@@ -23,9 +22,17 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.public_subnet_ids
 
+  # EKS Addons configuration
+  cluster_addons = {
+    coredns                = {}
+    eks-pod-identity-agent = {}
+    kube-proxy             = {}
+    vpc-cni                = {}
+  }
+
   eks_managed_node_groups = {
     prod-nodes = {
-      desired_capacity = 3
+      desired_capacity = 3 # This value is ignored after the initial creation of the node group
       max_capacity     = 5
       min_capacity     = 2
       instance_type    = "t3.medium"
@@ -34,17 +41,31 @@ module "eks" {
   }
 
   cluster_enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
-  enable_irsa = true
+  enable_irsa               = true
 }
 
-# module "security_groups" {
-#   source = "../modules/security-groups"
-#   name = "prod-eks-sg"
-#   description = "Security group for EKS in production"
-#   vpc_id = module.vpc.vpc_id
-#   ingress_cidr_blocks = ["0.0.0.0/0"]
-#   tags = {
-#     Environment = "production"
-#     Project     = "dagster-eks-poc"
-#   }
-# }
+module "karpenter" {
+  source = "../modules/karpenter"
+
+  cluster_name          = module.eks.cluster_name
+  cluster_endpoint      = module.eks.cluster_endpoint
+  iam_role_arn          = module.karpenter.iam_role_arn
+  region                = var.region
+  enable_v1_permissions = true
+
+  node_iam_role_use_name_prefix   = false
+  node_iam_role_name              = module.karpenter.iam_role_name
+  create_pod_identity_association = true
+
+  node_iam_role_additional_policies = {
+    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  }
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+
+# Desired Size Ignored After Initial Creation: 
+# The comment explains that the desired_size value is ignored after the initial creation of the node group. This means that once the node group is created, the desired_size attribute will not be managed by Terraform. Instead, the desired size will be managed by the EKS cluster autoscaler or other scaling mechanisms.
