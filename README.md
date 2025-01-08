@@ -25,15 +25,7 @@ my-scalable-web-app/
 │   │   │   │   ├── main.tf
 │   │   │   │   ├── outputs.tf
 │   │   │   │   ├── variables.tf
-│   │   │   ├── security-groups/
-│   │   │   │   ├── main.tf
-│   │   │   │   ├── outputs.tf
-│   │   │   │   ├── variables.tf
 │   │   │   ├── vpc/
-│   │   │   │   ├── main.tf
-│   │   │   │   ├── outputs.tf
-│   │   │   │   ├── variables.tf
-│   │   │   ├── rds/
 │   │   │   │   ├── main.tf
 │   │   │   │   ├── outputs.tf
 │   │   │   │   ├── variables.tf
@@ -42,7 +34,6 @@ my-scalable-web-app/
 │   │   │   ├── main.tf
 │   │   │   ├── terraform.tfvars
 │   │   │   ├── variables.tf
-│   │   ├── global/
 │   │   │   ├── providers.tf
 │   │   │   ├── versions.tf
 │   ├── README.md
