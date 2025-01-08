@@ -1,3 +1,19 @@
+# resource "kubernetes_namespace" "kube_system" {
+#   metadata {
+#     name = "kube-system"
+#   }
+# }
+
+resource "null_resource" "update_kubeconfig" {
+  provisioner "local-exec" {
+    command = "aws eks --region ${var.region} update-kubeconfig --name ${module.eks.cluster_name}"
+    environment = {
+      KUBE_CONFIG_PATH = "~/.kube/config"
+    }
+  }
+  depends_on = [module.eks]
+}
+
 module "vpc" {
   source          = "../modules/vpc"
   cidr_block      = "10.0.0.0/16"
@@ -18,9 +34,10 @@ module "eks_deps" {
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   cluster_name    = "prod-cluster"
-  cluster_version = "1.30"
+  cluster_version = "1.31"
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.public_subnet_ids
+  control_plane_subnet_ids = module.vpc.public_subnet_ids # For public endpoint edit later
 
   # EKS Addons configuration
   cluster_addons = {
@@ -29,6 +46,7 @@ module "eks" {
     kube-proxy             = {}
     vpc-cni                = {}
   }
+
 
   eks_managed_node_groups = {
     prod-nodes = {
@@ -41,22 +59,29 @@ module "eks" {
   }
 
   cluster_enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
-  enable_irsa               = true
+  enable_irsa = true
+
+  cluster_endpoint_public_access  = true
+  enable_cluster_creator_admin_permissions = true
+
+  tags = {
+    Environment = "production"
+  }
 }
 
+
 module "karpenter" {
-  source = "../modules/karpenter"
+  source = "terraform-aws-modules/eks/aws//modules/karpenter"
 
   cluster_name          = module.eks.cluster_name
-  cluster_endpoint      = module.eks.cluster_endpoint
-  iam_role_arn          = module.karpenter.iam_role_arn
-  region                = var.region
   enable_v1_permissions = true
 
+  # Name needs to match role name passed to the EC2NodeClass
   node_iam_role_use_name_prefix   = false
-  node_iam_role_name              = module.karpenter.iam_role_name
+  node_iam_role_name              = "prod-cluster-karpenter-node-role"
   create_pod_identity_association = true
 
+  # Used to attach additional IAM policies to the Karpenter node IAM role
   node_iam_role_additional_policies = {
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   }
@@ -66,6 +91,44 @@ module "karpenter" {
   }
 }
 
+module "karpenter_disabled" {
+  source = "terraform-aws-modules/eks/aws//modules/karpenter"
 
-# Desired Size Ignored After Initial Creation: 
-# The comment explains that the desired_size value is ignored after the initial creation of the node group. This means that once the node group is created, the desired_size attribute will not be managed by Terraform. Instead, the desired size will be managed by the EKS cluster autoscaler or other scaling mechanisms.
+  create = false
+}
+
+
+
+################################################################################
+# Karpenter Helm chart & manifests
+# Not required; just to demonstrate functionality of the sub-module
+################################################################################
+
+data "aws_ecrpublic_authorization_token" "token" {
+  provider = aws
+}
+
+resource "helm_release" "karpenter" {
+  namespace           = "kube-system"
+  name                = "karpenter"
+  repository          = "oci://public.ecr.aws/karpenter"
+  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
+  repository_password = data.aws_ecrpublic_authorization_token.token.password
+  chart               = "karpenter"
+  version             = "1.1.1"
+  wait                = false
+
+  values = [
+    <<-EOT
+    nodeSelector:
+      karpenter.sh/controller: 'true'
+    dnsPolicy: Default
+    settings:
+      clusterName: ${module.eks.cluster_name}
+      clusterEndpoint: ${module.eks.cluster_endpoint}
+      interruptionQueue: ${module.karpenter.queue_name}
+    webhook:
+      enabled: false
+    EOT
+  ]
+}

@@ -1,23 +1,5 @@
-resource "aws_iam_role" "eks_cluster" {
-  name = "${var.cluster_name}-eks-cluster-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "eks.amazonaws.com"
-        }
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cluster_AmazonEKSClusterPolicy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.eks_cluster.name
+locals {
+ policies = ["arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy", "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy", "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"]
 }
 
 resource "aws_iam_role" "eks_node" {
@@ -47,16 +29,21 @@ resource "aws_iam_role_policy_attachment" "eks_node_AmazonEC2ContainerRegistryRe
   role       = aws_iam_role.eks_node.name
 }
 
+resource "aws_iam_role_policy_attachment" "eks_node_AmazonEKS_CNI_Policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_node.name
+}
+
 resource "aws_security_group" "eks" {
   name        = "${var.cluster_name}-eks-sg"
   description = "Security group for EKS cluster"
   vpc_id      = var.vpc_id
 
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] # Adjust this to restrict access to your IP or CIDR block
   }
 
   egress {
@@ -66,5 +53,24 @@ resource "aws_security_group" "eks" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = var.tags
+  tags = {
+    Name = "${var.cluster_name}-eks-sg"
+  }
+}
+
+resource "aws_security_group" "eks_node" {
+  name        = "${var.cluster_name}-eks-node-sg"
+  description = "Security group for EKS nodes"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Ensure this allows outbound traffic to the EKS cluster endpoint
+  }
+
+  tags = {
+    Name = "${var.cluster_name}-eks-node-sg"
+  }
 }
