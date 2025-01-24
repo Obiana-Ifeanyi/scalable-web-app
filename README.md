@@ -1,6 +1,9 @@
 # scalable-web-app
 scalable-web-app
 
+<img src="images/Jenkins Argocd image.webp" alt="Architecture Diagram" width="600">
+
+
 ## File Structure
 ```
 my-scalable-web-app/
