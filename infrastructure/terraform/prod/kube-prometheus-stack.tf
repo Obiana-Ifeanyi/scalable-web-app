@@ -38,6 +38,8 @@ data "kubernetes_service" "prometheus" {
     name      = "kube-prometheus-stack-prometheus"
     namespace = helm_release.kube-prometheus.namespace
   }
+
+  depends_on = [helm_release.kube-prometheus]
 }
 
 data "kubernetes_service" "alertmanager" {
